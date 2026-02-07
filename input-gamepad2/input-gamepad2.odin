@@ -28,6 +28,7 @@ GamePadType :: enum {
 	Ps3,
 	Xbox,
 	Generic,
+	None,
 }
 
 getGamePadType :: proc() -> GamePadType {
@@ -44,6 +45,8 @@ getGamePadType :: proc() -> GamePadType {
 	return .Generic
 }
 
+isSettingsWindowOpen := false
+userSelectedPad: GamePadType = .None
 
 main :: proc() {
 	screenWidth: c.int = 800
@@ -52,10 +55,14 @@ main :: proc() {
 	raylib.InitWindow(screenWidth, screenHeight, "raylib [core] example - input gamepad")
 	raylib.SetTargetFPS(60)
 
-	texPs3Pad: raylib.Texture2D = raylib.LoadTexture("./resources/ps3.png")
-	texXboxPad: raylib.Texture2D = raylib.LoadTexture("./resources/xbox.png")
+	defaultPs3Pad: raylib.Texture2D = raylib.LoadTexture("./resources/ps3/default.png")
+	defaultXboxPad: raylib.Texture2D = raylib.LoadTexture("./resources/xbox/default.png")
 
 	vibrateButton: raylib.Rectangle
+
+
+	gamepadIndexSelected: c.int = 0
+	isGamepadSelectorEditMode := false
 
 	for !raylib.WindowShouldClose() {
 		raylib.BeginDrawing()
@@ -69,10 +76,34 @@ main :: proc() {
 				10,
 				raylib.GRAY,
 			)
-			raylib.DrawTexture(texXboxPad, 0, 0, raylib.LIGHTGRAY)
+			raylib.DrawTexture(defaultXboxPad, 0, 0, raylib.LIGHTGRAY)
 
 			raylib.EndDrawing()
 			continue
+		}
+
+		settingsButtonMessage: cstring = ""
+		if isSettingsWindowOpen {
+			settingsButtonMessage = "close settings"
+		} else {
+			settingsButtonMessage = "open settings"
+		}
+
+		if raylib.GuiButton({5, 5, 95, 25}, settingsButtonMessage) {
+			isSettingsWindowOpen = !isSettingsWindowOpen
+		}
+
+		if isSettingsWindowOpen {
+			selected := raylib.GuiDropdownBox(
+				{110, 5, 200, 25},
+				"Ps3;Xbox",
+				&gamepadIndexSelected,
+				isGamepadSelectorEditMode,
+			)
+			if selected {
+				isGamepadSelectorEditMode = !isGamepadSelectorEditMode
+				userSelectedPad = GamePadType(gamepadIndexSelected)
+			}
 		}
 
 		leftStickX = raylib.GetGamepadAxisMovement(gamepad, .LEFT_X)
@@ -102,22 +133,32 @@ main :: proc() {
 			rightTrigger = -1
 		}
 
-		padType := getGamePadType()
+		padType: GamePadType
 
-		switch padType {
-		case .Xbox:
-			drawXboxPad(texXboxPad)
-		case .Ps3:
-			drawPs3Pad(texPs3Pad)
-		case .Generic:
-			drawGenericPad()
+		if userSelectedPad != .None {
+			padType = userSelectedPad
+		} else {
+			padType = getGamePadType()
+		}
+
+		if !isSettingsWindowOpen {
+			switch padType {
+			case .Xbox:
+				drawXboxPad(defaultXboxPad)
+			case .Ps3:
+				drawPs3Pad(defaultPs3Pad)
+			case .Generic:
+				drawGenericPad()
+			case .None:
+				drawGenericPad()
+			}
 		}
 
 		raylib.EndDrawing()
 	}
 
-	raylib.UnloadTexture(texPs3Pad)
-	raylib.UnloadTexture(texXboxPad)
+	raylib.UnloadTexture(defaultPs3Pad)
+	raylib.UnloadTexture(defaultXboxPad)
 
 	raylib.CloseWindow()
 }
